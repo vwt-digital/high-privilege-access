@@ -37,13 +37,14 @@ def set_policy(project_id, policy):
 
 
 if len(sys.argv) < 2:
+    print("Insuffcient command line params")
     sys.exit()
 
 project_id = sys.argv[1]
 
 if not os.path.isdir('config/{}'.format(project_id)):
+    print("Directory with requests not found")
     sys.exit()
-
 
 # Get the last commit
 repo = Repo('')
