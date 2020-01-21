@@ -1,12 +1,11 @@
 {
-    "timeout": "3600s",
     "steps": [
         {
             "name": "gcr.io/cloud-builders/git",
             "args": [
                 "clone",
                 "--branch=${_BRANCH_NAME}",
-                "https://github.com/vwt-digital/cloud-deployment.git"
+                "https://github.com/vwt-digital/high-privilege-access.git"
             ]
         },
         {
