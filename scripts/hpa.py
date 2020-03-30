@@ -10,7 +10,10 @@ from oauth2client.client import GoogleCredentials
 def get_policy(project_id):
     """Gets IAM policy for a project."""
     credentials = GoogleCredentials.get_application_default()
+
+    print(credentials.to_json())
     service = googleapiclient.discovery.build('cloudresourcemanager', 'v1', credentials=credentials)
+
     policy = service.projects().getIamPolicy(resource=project_id, body={}).execute()
     print(policy)
     return policy
@@ -54,6 +57,8 @@ for request_file, v in last_commit.stats.files.items():
     if request_file.find('config/{}'.format(project_id)) != -1:
         with open(request_file) as json_file:
             hpa_request = json.load(json_file)
+
+        print(hpa_request)
 
         if 'operational_access' in hpa_request:
             oa = hpa_request['operational_access'][0]
