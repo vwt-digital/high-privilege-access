@@ -18,6 +18,22 @@ def kms_get_policy(project_id, location_id, key_ring_id):
     return policy
 
 
+def kms_modify_policy_add_member(policy, role, member):
+    bindings = []
+    if 'bindings' in policy.keys():
+        bindings = policy['bindings']
+    members = []
+    members.append(member)
+    new_binding = dict()
+    new_binding['role'] = role
+    new_binding['members'] = members
+    bindings.append(new_binding)
+    policy['bindings'] = bindings
+
+    print(policy)
+    return policy
+
+
 def kms_set_policy(project_id, location_id, key_ring_id, new_policy):
     credentials = GoogleCredentials.get_application_default()
     service = googleapiclient.discovery.build('cloudkms', 'v1', credentials=credentials)
@@ -91,7 +107,7 @@ for request_file, v in last_commit.stats.files.items():
                         print("Read")
                         kms_iam_policy = kms_get_policy(permission['target'], permission['location'], permission['keyring'])
                         print("Change")
-                        new_iam_policy = modify_policy_add_member(kms_iam_policy, permission['action'], permission['assignee'])
+                        new_iam_policy = kms_modify_policy_add_member(kms_iam_policy, permission['action'], permission['assignee'])
                         print("Write")
                         kms_set_policy(permission['target'], permission['location'], permission['keyring'], new_iam_policy)
                     else:
