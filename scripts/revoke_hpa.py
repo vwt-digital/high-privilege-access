@@ -50,7 +50,8 @@ if len(sys.argv) > 1:
 
             kms_service = googleapiclient.discovery.build('cloudkms', 'v1', credentials=credentials)
             keyring = 'projects/{}/locations/*/keyRings/*'.format(pr['projectId'])
-            kms_policy = kms_service.projects().locations().keyRings().getIamPolicy(resource=keyring).execute()
+            print(keyring)
+            kms_policy = kms_service.projects().locations().keyRings().list(resource=keyring).execute()
             print(kms_policy)
 
             policy = get_policy(pr['projectId'])
