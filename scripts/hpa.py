@@ -7,10 +7,49 @@ import googleapiclient.discovery
 from oauth2client.client import GoogleCredentials
 
 
+def kms_get_policy(project_id, location_id, key_ring_id):
+    credentials = GoogleCredentials.get_application_default()
+    service = googleapiclient.discovery.build('cloudkms', 'v1', credentials=credentials)
+
+    keyring = 'projects/{}/locations/{}/keyRings/{}'.format(project_id, location_id, key_ring_id)
+    policy = service.projects().locations().keyRings().getIamPolicy(resource=keyring).execute()
+
+    print(policy)
+    return policy
+
+
+def kms_modify_policy_add_member(policy, role, member):
+    bindings = []
+    if 'bindings' in policy.keys():
+        bindings = policy['bindings']
+    members = []
+    members.append(member)
+    new_binding = dict()
+    new_binding['role'] = role
+    new_binding['members'] = members
+    bindings.append(new_binding)
+    policy['bindings'] = bindings
+
+    print(policy)
+    return policy
+
+
+def kms_set_policy(project_id, location_id, key_ring_id, new_policy):
+    credentials = GoogleCredentials.get_application_default()
+    service = googleapiclient.discovery.build('cloudkms', 'v1', credentials=credentials)
+
+    keyring = 'projects/{}/locations/{}/keyRings/{}'.format(project_id, location_id, key_ring_id)
+    policy = service.projects().locations().keyRings().setIamPolicy(resource=keyring, body={'policy': new_policy}).execute()
+
+    print(policy)
+    return policy
+
+
 def get_policy(project_id):
     """Gets IAM policy for a project."""
     credentials = GoogleCredentials.get_application_default()
     service = googleapiclient.discovery.build('cloudresourcemanager', 'v1', credentials=credentials)
+
     policy = service.projects().getIamPolicy(resource=project_id, body={}).execute()
     print(policy)
     return policy
@@ -55,6 +94,8 @@ for request_file, v in last_commit.stats.files.items():
         with open(request_file) as json_file:
             hpa_request = json.load(json_file)
 
+        print(hpa_request)
+
         if 'operational_access' in hpa_request:
             oa = hpa_request['operational_access'][0]
 
@@ -62,10 +103,17 @@ for request_file, v in last_commit.stats.files.items():
                 policy = oa['odrlPolicy']
                 for permission in policy['permission']:
                     print(permission)
-
-                    print("Read")
-                    iam_policy = get_policy(permission['target'])
-                    print("Change")
-                    new_iam_policy = modify_policy_add_member(iam_policy, permission['action'], permission['assignee'])
-                    print("Write")
-                    set_policy(permission['target'], new_iam_policy)
+                    if 'cloudkms' in permission['action']:
+                        print("Read")
+                        kms_iam_policy = kms_get_policy(permission['target'], permission['location'], permission['keyring'])
+                        print("Change")
+                        new_iam_policy = kms_modify_policy_add_member(kms_iam_policy, permission['action'], permission['assignee'])
+                        print("Write")
+                        kms_set_policy(permission['target'], permission['location'], permission['keyring'], new_iam_policy)
+                    else:
+                        print("Read")
+                        iam_policy = get_policy(permission['target'])
+                        print("Change")
+                        new_iam_policy = modify_policy_add_member(iam_policy, permission['action'], permission['assignee'])
+                        print("Write")
+                        set_policy(permission['target'], new_iam_policy)

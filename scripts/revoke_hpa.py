@@ -40,12 +40,19 @@ if len(sys.argv) > 1:
     service = googleapiclient.discovery.build('cloudresourcemanager', 'v1', credentials=credentials)
 
     request = service.projects().list(filter="parent.id={}".format(parent_id))
-
+    print(request.to_json())
     while request is not None:
         response = request.execute()
+        print(response)
 
         for pr in response.get('projects', []):
             print(pr['projectId'])
+
+#            kms_service = googleapiclient.discovery.build('cloudkms', 'v1', credentials=credentials)
+#            keyring = 'projects/{}/locations/*/keyRings/*'.format(pr['projectId'])
+#            print(keyring)
+#            kms_policy = kms_service.projects().locations().keyRings().list(resource=keyring).execute()
+#            print(kms_policy)
 
             policy = get_policy(pr['projectId'])
             modified = False
