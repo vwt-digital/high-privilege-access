@@ -1,4 +1,5 @@
 import sys
+import time
 import googleapiclient.discovery
 from oauth2client.client import GoogleCredentials
 
@@ -87,10 +88,10 @@ if len(sys.argv) > 1:
 
     while request is not None:
         response = request.execute()
-        print(response)
 
         for pr in response.get('projects', []):
             update_iam_policy(pr['projectId'])
             update_cloudkms_policy(pr['projectId'])
+            time.sleep(5)
 
             request = service.projects().list_next(previous_request=request, previous_response=response)
