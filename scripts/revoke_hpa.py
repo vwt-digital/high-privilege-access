@@ -84,7 +84,7 @@ if len(sys.argv) > 1:
     credentials = GoogleCredentials.get_application_default()
     service = googleapiclient.discovery.build('cloudresourcemanager', 'v1', credentials=credentials)
 
-    request = service.projects().list(filter="parent.id={}".format(parent_id))
+    request = service.projects().list(filter="parent.id={} AND lifecycleState:ACTIVE".format(parent_id))
 
     while request is not None:
         response = request.execute()
@@ -92,6 +92,6 @@ if len(sys.argv) > 1:
         for pr in response.get('projects', []):
             update_iam_policy(pr['projectId'])
             update_cloudkms_policy(pr['projectId'])
-            time.sleep(15)
+            time.sleep(10)
 
             request = service.projects().list_next(previous_request=request, previous_response=response)
