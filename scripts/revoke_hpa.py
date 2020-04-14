@@ -92,6 +92,6 @@ if len(sys.argv) > 1:
         for pr in response.get('projects', []):
             update_iam_policy(pr['projectId'])
             update_cloudkms_policy(pr['projectId'])
-            time.sleep(10)
+            time.sleep(4)
 
             request = service.projects().list_next(previous_request=request, previous_response=response)
