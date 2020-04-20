@@ -23,24 +23,21 @@ def update_cloudkms_policy(projectId, kms_service):
     locations = kms_service.projects().locations().list(name=project).execute()
 
     for location in locations['locations']:
-        keyrings = kms_service.projects().locations().keyRings().list(parent=location['name']).execute()
+        key_rings = kms_service.projects().locations().keyRings().list(parent=location['name']).execute()
 
-        if 'keyRings' in keyrings:
-            for keyRing in keyrings['keyRings']:
+        for key_ring in key_rings.get('keyRings', []):
+            kms_policy = kms_service.projects().locations().keyRings().getIamPolicy(resource=key_ring['name']).execute()
+            kms_policy_updated = False
 
-                kms_policy = kms_service.projects().locations().keyRings().getIamPolicy(resource=keyRing['name']).execute()
-                kms_policy_updated = False
-                if 'bindings' in kms_policy:
-                    for binding in kms_policy['bindings']:
-                        if 'members' in binding:
-                            for member in binding['members']:
-                                if member.startswith('user'):
-                                    print('Remove member {} from policy {}'.format(member, kms_policy))
-                                    modify_policy_remove_member(kms_policy, binding['role'], member)
-                                    kms_policy_updated = True
-                if kms_policy_updated:
-                    print(kms_service.projects().locations().keyRings()
-                                     .setIamPolicy(resource=keyRing['name'], body={'policy': kms_policy}).execute())
+            for binding in kms_policy.get('bindings', []):
+                for member in binding.get('members', []):
+                    if member.startswith('user'):
+                        print('Remove member {} from policy {}'.format(member, kms_policy))
+                        modify_policy_remove_member(kms_policy, binding['role'], member)
+                        kms_policy_updated = True
+            if kms_policy_updated:
+                print(kms_service.projects().locations().keyRings()
+                                 .setIamPolicy(resource=key_ring['name'], body={'policy': kms_policy}).execute())
 
 
 def update_iam_policy(project_id, iam_service):
