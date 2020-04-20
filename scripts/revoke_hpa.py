@@ -4,40 +4,21 @@ import googleapiclient.discovery
 from oauth2client.client import GoogleCredentials
 
 
-def get_policy(project_id):
-    """Gets IAM policy for a project."""
+def get_service(service_name):
     credentials = GoogleCredentials.get_application_default()
-    service = googleapiclient.discovery.build('cloudresourcemanager', 'v1', credentials=credentials, cache_discovery=False)
-    policy = service.projects().getIamPolicy(resource=project_id, body={}).execute()
-    print(policy)
-    return policy
+    service = googleapiclient.discovery.build(service_name, 'v1', credentials=credentials, cache_discovery=False)
+
+    return service
 
 
 def modify_policy_remove_member(policy, role, member):
-    """Removes a  member from a role binding."""
-
     binding = next(b for b in policy['bindings'] if b['role'] == role)
     if 'members' in binding and member in binding['members']:
         binding['members'].remove(member)
-    print(binding)
     return policy
 
 
-def set_policy(project_id, policy):
-    """Sets IAM policy for a project."""
-
-    credentials = GoogleCredentials.get_application_default()
-    service = googleapiclient.discovery.build('cloudresourcemanager', 'v1', credentials=credentials, cache_discovery=False)
-
-    policy = service.projects().setIamPolicy(resource=project_id, body={'policy': policy}).execute()
-    print(policy)
-    return policy
-
-
-def update_cloudkms_policy(projectId):
-    credentials = GoogleCredentials.get_application_default()
-
-    kms_service = googleapiclient.discovery.build('cloudkms', 'v1', credentials=credentials)
+def update_cloudkms_policy(projectId, kms_service):
     project = 'projects/{}'.format(projectId)
     locations = kms_service.projects().locations().list(name=project).execute()
 
@@ -62,8 +43,8 @@ def update_cloudkms_policy(projectId):
                                      .setIamPolicy(resource=keyRing['name'], body={'policy': kms_policy}).execute())
 
 
-def update_iam_policy(projectId):
-    iam_policy = get_policy(projectId)
+def update_iam_policy(project_id, iam_service):
+    iam_policy = iam_service.projects().getIamPolicy(resource=project_id, body={}).execute()
     modified = False
 
     for binding in iam_policy['bindings']:
@@ -75,23 +56,30 @@ def update_iam_policy(projectId):
 
     if modified:
         print("New Policy {}".format(iam_policy))
-        set_policy(pr['projectId'], iam_policy)
+        iam_service.projects().setIamPolicy(resource=project_id, body={'policy': iam_policy}).execute()
 
 
-if len(sys.argv) > 1:
-    parent_id = sys.argv[1]
+def main():
+    if len(sys.argv) > 1:
+        parent_id = sys.argv[1]
 
-    credentials = GoogleCredentials.get_application_default()
-    service = googleapiclient.discovery.build('cloudresourcemanager', 'v1', credentials=credentials)
+        iam_service = get_service('cloudresourcemanager')
+        kms_service = get_service('cloudkms')
 
-    request = service.projects().list(filter="parent.id={} AND lifecycleState:ACTIVE".format(parent_id))
+        request = iam_service.projects().list(filter="parent.id={} AND lifecycleState:ACTIVE".format(parent_id))
 
-    while request is not None:
-        response = request.execute()
+        while request is not None:
+            response = request.execute()
 
-        for pr in response.get('projects', []):
-            update_iam_policy(pr['projectId'])
-            update_cloudkms_policy(pr['projectId'])
-            time.sleep(2)
+            for pr in response.get('projects', []):
+                print('Updating project [{}]'.format(pr['projectId']))
+                update_iam_policy(pr['projectId'], iam_service)
+                update_cloudkms_policy(pr['projectId'], kms_service)
+                time.sleep(2)
 
-            request = service.projects().list_next(previous_request=request, previous_response=response)
+                request = iam_service.projects().list_next(previous_request=request, previous_response=response)
+
+
+if __name__ == "__main__":
+    # execute only if run as a script
+    main()
