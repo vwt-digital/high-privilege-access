@@ -90,7 +90,7 @@ repo = Repo('')
 last_commit = list(repo.iter_commits(paths='config/{}'.format(project_id)))[0]
 
 for request_file, v in last_commit.stats.files.items():
-    if request_file.find('config/{}'.format(project_id)) != -1:
+    if 'config/{}'.format(project_id) in request_file and os.path.exists(request_file):
         with open(request_file) as json_file:
             hpa_request = json.load(json_file)
 
