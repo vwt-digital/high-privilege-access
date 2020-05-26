@@ -45,6 +45,36 @@ def kms_set_policy(project_id, location_id, key_ring_id, new_policy):
     return policy
 
 
+def stg_get_policy(bucket):
+    """Gets IAM policy for a project."""
+    print("Get policy for {}".format(bucket))
+    credentials = GoogleCredentials.get_application_default()
+    service = googleapiclient.discovery.build('storage', 'v1', credentials=credentials)
+
+    policy = service.buckets().getIamPolicy(bucket=bucket.replace('gs://', '')).execute()
+    print(policy)
+    return policy
+
+
+def stg_modify_policy_add_member(policy, role, member):
+    """Adds a new member to a role binding."""
+
+    binding = next(b for b in policy['bindings'] if b['role'] == role)
+    binding['members'].append(member)
+    print(binding)
+    return policy
+
+
+def stg_set_policy(bucket, policy):
+    """Sets IAM policy for a project."""
+
+    credentials = GoogleCredentials.get_application_default()
+    service = googleapiclient.discovery.build('storage', 'v1', credentials=credentials)
+    policy = service.buckets().setIamPolicy(bucket=bucket.replace('gs://', ''), body=policy).execute()
+    print(policy)
+    return policy
+
+
 def get_policy(project_id):
     """Gets IAM policy for a project."""
     credentials = GoogleCredentials.get_application_default()
@@ -91,6 +121,7 @@ last_commit = list(repo.iter_commits(paths='config/{}'.format(project_id)))[0]
 
 for request_file, v in last_commit.stats.files.items():
     if 'config/{}'.format(project_id) in request_file and os.path.exists(request_file):
+
         with open(request_file) as json_file:
             hpa_request = json.load(json_file)
 
@@ -107,9 +138,16 @@ for request_file, v in last_commit.stats.files.items():
                         print("Read")
                         kms_iam_policy = kms_get_policy(permission['target'], permission['location'], permission['keyring'])
                         print("Change")
-                        new_iam_policy = kms_modify_policy_add_member(kms_iam_policy, permission['action'], permission['assignee'])
+                        new_kms_policy = kms_modify_policy_add_member(kms_iam_policy, permission['action'], permission['assignee'])
                         print("Write")
-                        kms_set_policy(permission['target'], permission['location'], permission['keyring'], new_iam_policy)
+                        kms_set_policy(permission['target'], permission['location'], permission['keyring'], new_kms_policy)
+                    elif 'storage' in permission['action']:
+                        print("Read")
+                        stg_iam_policy = stg_get_policy(permission['target'])
+                        print("Change")
+                        new_stg_policy = stg_modify_policy_add_member(stg_iam_policy, permission['action'], permission['assignee'])
+                        print("Write")
+                        stg_set_policy(permission['target'], new_stg_policy)
                     else:
                         print("Read")
                         iam_policy = get_policy(permission['target'])
