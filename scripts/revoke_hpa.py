@@ -56,12 +56,31 @@ def update_iam_policy(project_id, iam_service):
         iam_service.projects().setIamPolicy(resource=project_id, body={'policy': iam_policy}).execute()
 
 
+def update_bucket_policy(project_id, stg_service):
+    bucket_list = stg_service.buckets().list(project=project_id).execute()
+
+    for bucket in bucket_list['items']:
+        stg_policy = stg_service.buckets().getIamPolicy(bucket=bucket['name']).execute()
+        stg_policy_updated = False
+
+        for binding in stg_policy.get('bindings', []):
+            for member in binding.get('members', []):
+                if member.startswith('user'):
+                    print('Remove member {} from policy {}'.format(member, stg_policy))
+                    modify_policy_remove_member(stg_policy, binding['role'], member)
+                    stg_policy_updated = True
+        if stg_policy_updated:
+            print("New Policy {}".format(stg_policy))
+            stg_service.buckets().setIamPolicy(bucket=bucket['name'], body=stg_policy).execute()
+
+
 def main():
     if len(sys.argv) > 1:
         parent_id = sys.argv[1]
 
         iam_service = get_service('cloudresourcemanager')
         kms_service = get_service('cloudkms')
+        stg_service = get_service('storage')
 
         request = iam_service.projects().list(filter="parent.id={} AND lifecycleState:ACTIVE".format(parent_id))
 
@@ -69,9 +88,14 @@ def main():
             response = request.execute()
 
             for pr in response.get('projects', []):
-                print('Updating project [{}]'.format(pr['projectId']))
+                print('Updating iam policy from project [{}]'.format(pr['projectId']))
                 update_iam_policy(pr['projectId'], iam_service)
+
+                print('Updating cloudkms policy from project [{}]'.format(pr['projectId']))
                 update_cloudkms_policy(pr['projectId'], kms_service)
+
+                print('Updating bucket policy from project [{}]'.format(pr['projectId']))
+                update_bucket_policy(pr['projectId'], stg_service)
                 time.sleep(2)
 
                 request = iam_service.projects().list_next(previous_request=request, previous_response=response)
