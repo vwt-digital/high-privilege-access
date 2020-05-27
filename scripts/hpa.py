@@ -141,7 +141,7 @@ for request_file, v in last_commit.stats.files.items():
                         new_kms_policy = kms_modify_policy_add_member(kms_iam_policy, permission['action'], permission['assignee'])
                         print("Write")
                         kms_set_policy(permission['target'], permission['location'], permission['keyring'], new_kms_policy)
-                    elif 'storage' in permission['action']:
+                    elif permission['target'].startswith('gs://'):
                         print("Read")
                         stg_iam_policy = stg_get_policy(permission['target'])
                         print("Change")
