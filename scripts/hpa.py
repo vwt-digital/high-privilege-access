@@ -2,9 +2,9 @@ import git
 import json
 import argparse
 import logging
-import googleapiclient.discovery
 
 from pprint import pformat
+from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
 
@@ -116,7 +116,7 @@ def make_service(service):
 
     credentials = GoogleCredentials.get_application_default()
 
-    service = googleapiclient.discovery.build(
+    service = discovery.build(
         service, 'v1',
         credentials=credentials)
 
