@@ -126,13 +126,33 @@ def make_service(service):
     return service
 
 
-def get_last_commit(project_id):
+def git_changed_files(project_id):
     """Returns commit info for the last commmit in the current repo."""
 
     repo = git.Repo('')
-    last_commit = list(repo.iter_commits(paths='config/{}'.format(project_id)))[0]
+    branch = str(repo.active_branch)
 
-    return last_commit
+    files = []
+
+    if branch == 'develop':
+        last_commit = list(repo.iter_commits(paths='config/{}'.format(project_id)))[0]
+        files = [file for file in last_commit.stats.files.keys() if project_id in file]
+
+    elif branch == 'master':
+        headcommit = repo.head.commit
+        while True:
+            headcommit = headcommit.parents[0]
+            if len(headcommit.parents) != 1:
+                break
+
+        last_commits = list(repo.iter_commits(rev='{}..{}'.format(headcommit, branch)))
+
+        for commit in last_commits:
+            for file in commit.stats.files.keys():
+                if project_id in file:
+                    files.append(file)
+
+    return list(set(files))
 
 
 def parse_args():
@@ -147,9 +167,9 @@ def parse_args():
 
 def main(args):
 
-    last_commit = get_last_commit(args.project_id)
+    files = git_changed_files(args.project_id)
 
-    for file, value in last_commit.stats.files.items():
+    for file in files:
 
         logging.info('Changed file: {}'.format(file))
 
