@@ -14,11 +14,11 @@
             "entrypoint": "bash",
             "args": [
                 "-c",
-		"pip install virtualenv==16.7.9 && virtualenv -p python3 venv && source venv/bin/activate && pip install --upgrade google-auth oauth2client google-api-python-client && python high-privilege-access/scripts/revoke_hpa.py ${_PARENT_ID}"
+                "pip install virtualenv==16.7.9 && virtualenv -p python3 venv && source venv/bin/activate && pip install --upgrade google-auth oauth2client google-api-python-client && python high-privilege-access/scripts/revoke_hpa.py ${_PARENT_ID}"
             ]
         }
     ],
-        "substitutions": {
+    "substitutions": {
         "_BRANCH_NAME": "__BRANCH_NAME__",
         "_PARENT_ID": "__PARENT_ID__"
     }

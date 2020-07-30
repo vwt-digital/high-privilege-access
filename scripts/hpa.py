@@ -1,157 +1,195 @@
-import sys
+import git
 import json
-import os
-from git import Repo
-
+import argparse
+import logging
 import googleapiclient.discovery
+
+from pprint import pformat
 from oauth2client.client import GoogleCredentials
 
 
-def kms_get_policy(project_id, location_id, key_ring_id):
-    credentials = GoogleCredentials.get_application_default()
-    service = googleapiclient.discovery.build('cloudkms', 'v1', credentials=credentials)
+def kms_get_policy(service, project_id, location_id, key_ring_id):
+    """Gets iam policy for a keyring."""
 
-    keyring = 'projects/{}/locations/{}/keyRings/{}'.format(project_id, location_id, key_ring_id)
-    policy = service.projects().locations().keyRings().getIamPolicy(resource=keyring).execute()
+    keyring = 'projects/{}/locations/{}/keyRings/{}'.format(
+        project_id,
+        location_id,
+        key_ring_id)
 
-    print(policy)
+    policy = service.projects().locations().keyRings().getIamPolicy(
+        resource=keyring).execute()
+
     return policy
 
 
-def kms_modify_policy_add_member(policy, role, member):
+def kms_set_policy(service, project_id, location_id, key_ring_id, policy):
+    """Sets iam policy for a keyring."""
+
+    keyring = 'projects/{}/locations/{}/keyRings/{}'.format(
+        project_id,
+        location_id,
+        key_ring_id)
+
+    policy = service.projects().locations().keyRings().setIamPolicy(
+        resource=keyring,
+        body={'policy': policy}).execute()
+
+    return policy
+
+
+def kms_modify_policy(policy, role, member):
+    """Adds a new member to a kms role binding."""
+
     bindings = []
     if 'bindings' in policy.keys():
         bindings = policy['bindings']
-    members = []
-    members.append(member)
+    members = [member]
+
     new_binding = dict()
     new_binding['role'] = role
     new_binding['members'] = members
     bindings.append(new_binding)
     policy['bindings'] = bindings
 
-    print(policy)
     return policy
 
 
-def kms_set_policy(project_id, location_id, key_ring_id, new_policy):
-    credentials = GoogleCredentials.get_application_default()
-    service = googleapiclient.discovery.build('cloudkms', 'v1', credentials=credentials)
-
-    keyring = 'projects/{}/locations/{}/keyRings/{}'.format(project_id, location_id, key_ring_id)
-    policy = service.projects().locations().keyRings().setIamPolicy(resource=keyring, body={'policy': new_policy}).execute()
-
-    print(policy)
-    return policy
-
-
-def stg_get_policy(bucket):
+def stg_get_policy(service, bucket):
     """Gets IAM policy for a project."""
-    print("Get policy for {}".format(bucket))
-    credentials = GoogleCredentials.get_application_default()
-    service = googleapiclient.discovery.build('storage', 'v1', credentials=credentials)
 
-    policy = service.buckets().getIamPolicy(bucket=bucket.replace('gs://', '')).execute()
-    print(policy)
+    policy = service.buckets().getIamPolicy(
+        bucket=bucket.replace('gs://', '')).execute()
+
     return policy
 
 
-def stg_modify_policy_add_member(policy, role, member):
+def stg_set_policy(service, bucket, policy):
+    """Sets IAM policy for a project."""
+
+    policy = service.buckets().setIamPolicy(
+        bucket=bucket.replace('gs://', ''),
+        body=policy).execute()
+
+    return policy
+
+
+def stg_modify_policy(policy, role, member):
+    """Adds a new member to a storage role binding."""
+
+    binding = next(b for b in policy['bindings'] if b['role'] == role)
+    binding['members'].append(member)
+
+    return policy
+
+
+def get_iam_policy(service, project_id):
+    """Gets IAM policy for a project."""
+
+    policy = service.projects().getIamPolicy(
+        resource=project_id,
+        body={}).execute()
+
+    return policy
+
+
+def set_iam_policy(service, project_id, policy):
+    """Sets IAM policy for a project."""
+
+    policy = service.projects().setIamPolicy(
+        resource=project_id,
+        body={'policy': policy}).execute()
+
+    return policy
+
+
+def modify_iam_policy(policy, role, member):
     """Adds a new member to a role binding."""
 
     binding = next(b for b in policy['bindings'] if b['role'] == role)
     binding['members'].append(member)
-    print(binding)
+
     return policy
 
 
-def stg_set_policy(bucket, policy):
-    """Sets IAM policy for a project."""
+def make_service(service):
+    """Makes a service googleapiclient service."""
 
     credentials = GoogleCredentials.get_application_default()
-    service = googleapiclient.discovery.build('storage', 'v1', credentials=credentials)
-    policy = service.buckets().setIamPolicy(bucket=bucket.replace('gs://', ''), body=policy).execute()
-    print(policy)
-    return policy
+
+    service = googleapiclient.discovery.build(
+        service, 'v1',
+        credentials=credentials)
+
+    return service
 
 
-def get_policy(project_id):
-    """Gets IAM policy for a project."""
-    credentials = GoogleCredentials.get_application_default()
-    service = googleapiclient.discovery.build('cloudresourcemanager', 'v1', credentials=credentials)
+def get_last_commit(project_id):
+    """Returns commit info for the last commmit in the current repo."""
 
-    policy = service.projects().getIamPolicy(resource=project_id, body={}).execute()
-    print(policy)
-    return policy
+    repo = git.Repo('')
+    last_commit = list(repo.iter_commits(paths='config/{}'.format(project_id)))[0]
 
-
-def modify_policy_add_member(policy, role, member):
-    """Adds a new member to a role binding."""
-
-    binding = next(b for b in policy['bindings'] if b['role'] == role)
-    binding['members'].append(member)
-    print(binding)
-    return policy
+    return last_commit
 
 
-def set_policy(project_id, policy):
-    """Sets IAM policy for a project."""
+def parse_args():
+    """A simple function to parse command line arguments."""
 
-    credentials = GoogleCredentials.get_application_default()
-    service = googleapiclient.discovery.build('cloudresourcemanager', 'v1', credentials=credentials)
+    parser = argparse.ArgumentParser(description='Grant high privilege access requests')
+    parser.add_argument('-p', '--project-id',
+                        required=True,
+                        help='name of the GCP project')
+    return parser.parse_args()
 
-    policy = service.projects().setIamPolicy(resource=project_id, body={'policy': policy}).execute()
-    print(policy)
-    return policy
 
+def main(args):
 
-if len(sys.argv) < 2:
-    print("Insuffcient command line params")
-    sys.exit()
+    last_commit = get_last_commit(args.project_id)
 
-project_id = sys.argv[1]
+    for file, value in last_commit.stats.files.items():
 
-if not os.path.isdir('config/{}'.format(project_id)):
-    print("Directory with requests not found")
-    sys.exit()
+        logging.info('Changed file: {}'.format(file))
 
-# Get the last commit
-repo = Repo('')
-last_commit = list(repo.iter_commits(paths='config/{}'.format(project_id)))[0]
-
-for request_file, v in last_commit.stats.files.items():
-    if 'config/{}'.format(project_id) in request_file and os.path.exists(request_file):
-
-        with open(request_file) as json_file:
+        with open(file) as json_file:
             hpa_request = json.load(json_file)
 
-        print(hpa_request)
+        logging.info('Processing hpa request:')
+        logging.info(pformat(hpa_request))
 
-        if 'operational_access' in hpa_request:
-            oa = hpa_request['operational_access'][0]
+        for access_request in hpa_request.get('operational_access', []):
 
-            if 'odrlPolicy' in oa:
-                policy = oa['odrlPolicy']
-                for permission in policy['permission']:
-                    print(permission)
-                    if 'cloudkms' in permission['action']:
-                        print("Read")
-                        kms_iam_policy = kms_get_policy(permission['target'], permission['location'], permission['keyring'])
-                        print("Change")
-                        new_kms_policy = kms_modify_policy_add_member(kms_iam_policy, permission['action'], permission['assignee'])
-                        print("Write")
-                        kms_set_policy(permission['target'], permission['location'], permission['keyring'], new_kms_policy)
-                    elif permission['target'].startswith('gs://'):
-                        print("Read")
-                        stg_iam_policy = stg_get_policy(permission['target'])
-                        print("Change")
-                        new_stg_policy = stg_modify_policy_add_member(stg_iam_policy, permission['action'], permission['assignee'])
-                        print("Write")
-                        stg_set_policy(permission['target'], new_stg_policy)
-                    else:
-                        print("Read")
-                        iam_policy = get_policy(permission['target'])
-                        print("Change")
-                        new_iam_policy = modify_policy_add_member(iam_policy, permission['action'], permission['assignee'])
-                        print("Write")
-                        set_policy(permission['target'], new_iam_policy)
+            for permission in access_request.get('odrlPolicy', {}).get('permission', []):
+
+                if 'cloudkms' in permission['action']:
+
+                    kms_service = make_service('cloudkms')
+                    kms_policy = kms_get_policy(kms_service, permission['target'], permission['location'], permission['keyring'])
+                    new_kms_policy = kms_modify_policy(kms_service, kms_policy, permission['action'], permission['assignee'])
+                    kms_set_policy(permission['target'], permission['location'], permission['keyring'], new_kms_policy)
+
+                    logging.info('Set new kms policy:')
+                    logging.info(pformat(new_kms_policy))
+
+                elif permission['target'].startswith('gs://'):
+
+                    stg_service = make_service('storage')
+                    stg_policy = stg_get_policy(stg_service, permission['target'])
+                    new_stg_policy = stg_modify_policy(stg_service, stg_policy, permission['action'], permission['assignee'])
+                    stg_set_policy(stg_service, permission['target'], new_stg_policy)
+
+                    logging.info('Set new storage policy:')
+                    logging.info(pformat(new_stg_policy))
+
+                else:
+
+                    crm_service = make_service('cloudresourcemanager')
+                    iam_policy = get_iam_policy(crm_service, permission['target'])
+                    new_iam_policy = modify_iam_policy(crm_service, iam_policy, permission['action'], permission['assignee'])
+                    set_iam_policy(crm_service, permission['target'], new_iam_policy)
+
+                    logging.info('Set new project iam policy:')
+                    logging.info(pformat(new_iam_policy))
+
+
+if __name__ == '__main__':
+    main(parse_args())
