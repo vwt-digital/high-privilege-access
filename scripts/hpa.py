@@ -7,8 +7,10 @@ from pprint import pformat
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
+logging.basicConfig(level=logging.INFO, format='%(levelname)7s: %(message)s')
 
-def kms_get_policy(service, project_id, location_id, key_ring_id):
+
+def get_kms_policy(service, project_id, location_id, key_ring_id):
     """Gets iam policy for a keyring."""
 
     keyring = 'projects/{}/locations/{}/keyRings/{}'.format(
@@ -22,7 +24,7 @@ def kms_get_policy(service, project_id, location_id, key_ring_id):
     return policy
 
 
-def kms_set_policy(service, project_id, location_id, key_ring_id, policy):
+def set_kms_policy(service, project_id, location_id, key_ring_id, policy):
     """Sets iam policy for a keyring."""
 
     keyring = 'projects/{}/locations/{}/keyRings/{}'.format(
@@ -37,7 +39,7 @@ def kms_set_policy(service, project_id, location_id, key_ring_id, policy):
     return policy
 
 
-def kms_modify_policy(policy, role, member):
+def modify_kms_policy(policy, role, member):
     """Adds a new member to a kms role binding."""
 
     bindings = []
@@ -54,7 +56,7 @@ def kms_modify_policy(policy, role, member):
     return policy
 
 
-def stg_get_policy(service, bucket):
+def get_stg_policy(service, bucket):
     """Gets IAM policy for a project."""
 
     policy = service.buckets().getIamPolicy(
@@ -63,7 +65,7 @@ def stg_get_policy(service, bucket):
     return policy
 
 
-def stg_set_policy(service, bucket, policy):
+def set_stg_policy(service, bucket, policy):
     """Sets IAM policy for a project."""
 
     policy = service.buckets().setIamPolicy(
@@ -73,7 +75,7 @@ def stg_set_policy(service, bucket, policy):
     return policy
 
 
-def stg_modify_policy(policy, role, member):
+def modify_stg_policy(policy, role, member):
     """Adds a new member to a storage role binding."""
 
     binding = next(b for b in policy['bindings'] if b['role'] == role)
@@ -118,7 +120,8 @@ def make_service(service):
 
     service = discovery.build(
         service, 'v1',
-        credentials=credentials)
+        credentials=credentials,
+        cache_discovery=False)
 
     return service
 
@@ -163,9 +166,9 @@ def main(args):
                 if 'cloudkms' in permission['action']:
 
                     kms_service = make_service('cloudkms')
-                    kms_policy = kms_get_policy(kms_service, permission['target'], permission['location'], permission['keyring'])
-                    new_kms_policy = kms_modify_policy(kms_service, kms_policy, permission['action'], permission['assignee'])
-                    kms_set_policy(permission['target'], permission['location'], permission['keyring'], new_kms_policy)
+                    kms_policy = get_kms_policy(kms_service, permission['target'], permission['location'], permission['keyring'])
+                    new_kms_policy = modify_kms_policy(kms_policy, permission['action'], permission['assignee'])
+                    set_kms_policy(permission['target'], permission['location'], permission['keyring'], new_kms_policy)
 
                     logging.info('Set new kms policy:')
                     logging.info(pformat(new_kms_policy))
@@ -173,9 +176,9 @@ def main(args):
                 elif permission['target'].startswith('gs://'):
 
                     stg_service = make_service('storage')
-                    stg_policy = stg_get_policy(stg_service, permission['target'])
-                    new_stg_policy = stg_modify_policy(stg_service, stg_policy, permission['action'], permission['assignee'])
-                    stg_set_policy(stg_service, permission['target'], new_stg_policy)
+                    stg_policy = get_stg_policy(stg_service, permission['target'])
+                    new_stg_policy = modify_stg_policy(stg_policy, permission['action'], permission['assignee'])
+                    set_stg_policy(stg_service, permission['target'], new_stg_policy)
 
                     logging.info('Set new storage policy:')
                     logging.info(pformat(new_stg_policy))
@@ -184,7 +187,7 @@ def main(args):
 
                     crm_service = make_service('cloudresourcemanager')
                     iam_policy = get_iam_policy(crm_service, permission['target'])
-                    new_iam_policy = modify_iam_policy(crm_service, iam_policy, permission['action'], permission['assignee'])
+                    new_iam_policy = modify_iam_policy(iam_policy, permission['action'], permission['assignee'])
                     set_iam_policy(crm_service, permission['target'], new_iam_policy)
 
                     logging.info('Set new project iam policy:')
