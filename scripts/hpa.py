@@ -170,7 +170,7 @@ def main(args):
                     new_kms_policy = modify_kms_policy(kms_policy, permission['action'], permission['assignee'])
                     set_kms_policy(permission['target'], permission['location'], permission['keyring'], new_kms_policy)
 
-                    logging.info('Set new kms policy:')
+                    logging.info('Set new kms policy bindings:')
                     logging.info(pformat(new_kms_policy))
 
                 elif permission['target'].startswith('gs://'):
@@ -180,7 +180,7 @@ def main(args):
                     new_stg_policy = modify_stg_policy(stg_policy, permission['action'], permission['assignee'])
                     set_stg_policy(stg_service, permission['target'], new_stg_policy)
 
-                    logging.info('Set new storage policy:')
+                    logging.info('Set new storage policy bindings:')
                     logging.info(pformat(new_stg_policy))
 
                 else:
@@ -190,8 +190,8 @@ def main(args):
                     new_iam_policy = modify_iam_policy(iam_policy, permission['action'], permission['assignee'])
                     set_iam_policy(crm_service, permission['target'], new_iam_policy)
 
-                    logging.info('Set new project iam policy:')
-                    logging.info(pformat(new_iam_policy))
+                    logging.info('Set new project iam policy bindings:')
+                    logging.info(pformat(new_iam_policy.get('bindings')))
 
 
 if __name__ == '__main__':
