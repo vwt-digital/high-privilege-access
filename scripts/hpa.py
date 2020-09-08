@@ -39,23 +39,6 @@ def set_kms_policy(service, project_id, location_id, key_ring_id, policy):
     return policy
 
 
-def modify_kms_policy(policy, role, member):
-    """Adds a new member to a kms role binding."""
-
-    bindings = []
-    if 'bindings' in policy.keys():
-        bindings = policy['bindings']
-    members = [member]
-
-    new_binding = dict()
-    new_binding['role'] = role
-    new_binding['members'] = members
-    bindings.append(new_binding)
-    policy['bindings'] = bindings
-
-    return policy
-
-
 def get_stg_policy(service, bucket):
     """Gets IAM policy for a project."""
 
@@ -75,11 +58,19 @@ def set_stg_policy(service, bucket, policy):
     return policy
 
 
-def modify_stg_policy(policy, role, member):
-    """Adds a new member to a storage role binding."""
+def modify_policy(policy, role, member):
+    """Modify policy"""
 
-    binding = next(b for b in policy['bindings'] if b['role'] == role)
-    binding['members'].append(member)
+    bindings = []
+    if 'bindings' in policy.keys():
+        bindings = policy['bindings']
+    members = [member]
+
+    new_binding = dict()
+    new_binding['role'] = role
+    new_binding['members'] = members
+    bindings.append(new_binding)
+    policy['bindings'] = bindings
 
     return policy
 
@@ -100,15 +91,6 @@ def set_iam_policy(service, project_id, policy):
     policy = service.projects().setIamPolicy(
         resource=project_id,
         body={'policy': policy}).execute()
-
-    return policy
-
-
-def modify_iam_policy(policy, role, member):
-    """Adds a new member to a role binding."""
-
-    binding = next(b for b in policy['bindings'] if b['role'] == role)
-    binding['members'].append(member)
 
     return policy
 
@@ -187,7 +169,7 @@ def main(args):
 
                     kms_service = make_service('cloudkms')
                     kms_policy = get_kms_policy(kms_service, permission['target'], permission['location'], permission['keyring'])
-                    new_kms_policy = modify_kms_policy(kms_policy, permission['action'], permission['assignee'])
+                    new_kms_policy = modify_policy(kms_policy, permission['action'], permission['assignee'])
                     set_kms_policy(permission['target'], permission['location'], permission['keyring'], new_kms_policy)
 
                     logging.info('Set new kms policy bindings:')
@@ -197,7 +179,7 @@ def main(args):
 
                     stg_service = make_service('storage')
                     stg_policy = get_stg_policy(stg_service, permission['target'])
-                    new_stg_policy = modify_stg_policy(stg_policy, permission['action'], permission['assignee'])
+                    new_stg_policy = modify_policy(stg_policy, permission['action'], permission['assignee'])
                     set_stg_policy(stg_service, permission['target'], new_stg_policy)
 
                     logging.info('Set new storage policy bindings:')
@@ -207,7 +189,7 @@ def main(args):
 
                     crm_service = make_service('cloudresourcemanager')
                     iam_policy = get_iam_policy(crm_service, permission['target'])
-                    new_iam_policy = modify_iam_policy(iam_policy, permission['action'], permission['assignee'])
+                    new_iam_policy = modify_policy(iam_policy, permission['action'], permission['assignee'])
                     set_iam_policy(crm_service, permission['target'], new_iam_policy)
 
                     logging.info('Set new project iam policy bindings:')
