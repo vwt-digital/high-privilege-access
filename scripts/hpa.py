@@ -3,6 +3,7 @@ import json
 import argparse
 import logging
 
+from os import path
 from pprint import pformat
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
@@ -152,6 +153,10 @@ def main(args):
     files = git_changed_files(args.project_id)
 
     for file in files:
+
+        if not path.exists(file):
+            logging.info('File {} does not exist'.format(file))
+            continue
 
         logging.info('Changed file: {}'.format(file))
 
