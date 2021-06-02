@@ -194,7 +194,7 @@ def main(args):
                     print(
                         f"Role '{permission['action']}' is a basic role and is forbidden to use, "
                         f"please define either a predefined or custom role. "
-                        f"See https://cloud.google.com/iam/docs/understanding-roles"
+                        f"See https://github.com/vwt-digital/high-privilege-access/blob/develop/README.md#basic-roles-alternatives for alternative roles."
                     )
                     sys.exit(1)
 
