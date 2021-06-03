@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import sys
+from datetime import datetime, timedelta
 from os import path
 from pprint import pformat
 
@@ -70,7 +71,7 @@ def set_stg_policy(service, bucket, policy):
     return policy
 
 
-def modify_policy(policy, role, member):
+def modify_policy(policy, role, member, condition):
     """Modify policy"""
 
     bindings = []
@@ -81,6 +82,7 @@ def modify_policy(policy, role, member):
     new_binding = dict()
     new_binding["role"] = role
     new_binding["members"] = members
+    new_binding["condition"] = condition
     bindings.append(new_binding)
     policy["bindings"] = bindings
 
@@ -105,6 +107,19 @@ def set_iam_policy(service, project_id, policy):
     )
 
     return policy
+
+
+def get_iam_policy_condition(policy_uid):
+    expiration_date = (datetime.utcnow() + timedelta(days=1)).strftime(
+        "%Y-%m-%dT00:00:00Z"
+    )
+    condition = {
+        "title": f"{policy_uid}-expiry-condition",
+        "description": f"IAM expiry condition by end of day for policy {policy_uid}",
+        "expression": f"request.time < timestamp('{expiration_date}')",
+    }
+
+    return condition
 
 
 def make_service(service):
@@ -187,6 +202,10 @@ def main(args):
             for permission in access_request.get("odrlPolicy", {}).get(
                 "permission", []
             ):
+                policy_uid = access_request["odrlPolicy"].get(
+                    "uid", f"{permission['target']}-policy"
+                )
+                policy_condition = get_iam_policy_condition(policy_uid)
 
                 if args.forbidden_roles and permission[
                     "action"
@@ -209,7 +228,10 @@ def main(args):
                         permission["keyring"],
                     )
                     new_kms_policy = modify_policy(
-                        kms_policy, permission["action"], permission["assignee"]
+                        kms_policy,
+                        permission["action"],
+                        permission["assignee"],
+                        policy_condition,
                     )
                     set_kms_policy(
                         permission["target"],
@@ -226,7 +248,10 @@ def main(args):
                     stg_service = make_service("storage")
                     stg_policy = get_stg_policy(stg_service, permission["target"])
                     new_stg_policy = modify_policy(
-                        stg_policy, permission["action"], permission["assignee"]
+                        stg_policy,
+                        permission["action"],
+                        permission["assignee"],
+                        policy_condition,
                     )
                     set_stg_policy(stg_service, permission["target"], new_stg_policy)
 
@@ -238,7 +263,10 @@ def main(args):
                     crm_service = make_service("cloudresourcemanager")
                     iam_policy = get_iam_policy(crm_service, permission["target"])
                     new_iam_policy = modify_policy(
-                        iam_policy, permission["action"], permission["assignee"]
+                        iam_policy,
+                        permission["action"],
+                        permission["assignee"],
+                        policy_condition,
                     )
                     set_iam_policy(crm_service, permission["target"], new_iam_policy)
 
