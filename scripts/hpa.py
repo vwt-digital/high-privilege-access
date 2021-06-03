@@ -192,9 +192,10 @@ def main(args):
                     "action"
                 ] in args.forbidden_roles.split(","):
                     print(
-                        f"Role '{permission['action']}' is a basic role and is forbidden to use, "
+                        f"\033[91mERROR: Role '{permission['action']}' is a basic role and is forbidden to use, "
                         f"please define either a predefined or custom role. "
-                        f"See https://github.com/vwt-digital/high-privilege-access/blob/develop/README.md#basic-roles-alternatives for alternative roles."
+                        f"See https://github.com/vwt-digital/high-privilege-access/blob/develop/README.md"
+                        f"#basic-roles-alternatives for alternative roles.\033[0m"
                     )
                     sys.exit(1)
 
