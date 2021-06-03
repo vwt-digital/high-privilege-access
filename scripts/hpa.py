@@ -118,15 +118,15 @@ def set_iam_policy(service, project_id, policy):
     return policy
 
 
-def get_iam_policy_condition(policy_uid):
+def get_iam_policy_condition(project):
     """Creates IAM policy condition."""
 
     expiration_date = (datetime.utcnow() + timedelta(days=1)).strftime(
         "%Y-%m-%dT00:00:00Z"
     )
     condition = {
-        "title": f"{policy_uid}-expiry-condition",
-        "description": f"IAM expiry condition by end of day for policy {policy_uid}",
+        "title": f"{project}-expiry-condition",
+        "description": "IAM policy expiry condition by end of day",
         "expression": f"request.time < timestamp('{expiration_date}')",
     }
 
@@ -213,10 +213,9 @@ def main(args):
             for permission in access_request.get("odrlPolicy", {}).get(
                 "permission", []
             ):
-                policy_uid = access_request["odrlPolicy"].get(
-                    "uid", f"{permission['target']}-policy"
+                policy_condition = get_iam_policy_condition(
+                    permission["target"].replace("gs://", "")
                 )
-                policy_condition = get_iam_policy_condition(policy_uid)
 
                 if args.forbidden_roles and permission[
                     "action"
