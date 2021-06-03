@@ -11,6 +11,7 @@ from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)7s: %(message)s")
+policy_version = 3  # See https://cloud.google.com/iam/docs/policies#versions
 
 
 def get_kms_policy(service, project_id, location_id, key_ring_id):
@@ -85,7 +86,7 @@ def modify_policy(policy, role, member, condition):
     new_binding["condition"] = condition
     bindings.append(new_binding)
     policy["bindings"] = bindings
-    policy["version"] = 3  # See https://cloud.google.com/iam/docs/policies#versions
+    policy["version"] = policy_version
 
     return policy
 
@@ -93,7 +94,14 @@ def modify_policy(policy, role, member, condition):
 def get_iam_policy(service, project_id):
     """Gets IAM policy for a project."""
 
-    policy = service.projects().getIamPolicy(resource=project_id, body={}).execute()
+    policy = (
+        service.projects()
+        .getIamPolicy(
+            resource=project_id,
+            body={"options": {"requestedPolicyVersion": policy_version}},
+        )
+        .execute()
+    )
 
     return policy
 
@@ -111,6 +119,8 @@ def set_iam_policy(service, project_id, policy):
 
 
 def get_iam_policy_condition(policy_uid):
+    """Creates IAM policy condition."""
+
     expiration_date = (datetime.utcnow() + timedelta(days=1)).strftime(
         "%Y-%m-%dT00:00:00Z"
     )
