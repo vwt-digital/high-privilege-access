@@ -85,6 +85,7 @@ def modify_policy(policy, role, member, condition):
     new_binding["condition"] = condition
     bindings.append(new_binding)
     policy["bindings"] = bindings
+    policy["version"] = 3  # See https://cloud.google.com/iam/docs/policies#versions
 
     return policy
 
