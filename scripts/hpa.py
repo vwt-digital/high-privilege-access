@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import sys
+from datetime import datetime, timedelta
 from os import path
 from pprint import pformat
 
@@ -10,6 +11,7 @@ from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)7s: %(message)s")
+policy_version = 3  # See https://cloud.google.com/iam/docs/policies#versions
 
 
 def get_kms_policy(service, project_id, location_id, key_ring_id):
@@ -70,7 +72,7 @@ def set_stg_policy(service, bucket, policy):
     return policy
 
 
-def modify_policy(policy, role, member):
+def modify_policy(policy, role, member, condition):
     """Modify policy"""
 
     bindings = []
@@ -81,8 +83,10 @@ def modify_policy(policy, role, member):
     new_binding = dict()
     new_binding["role"] = role
     new_binding["members"] = members
+    new_binding["condition"] = condition
     bindings.append(new_binding)
     policy["bindings"] = bindings
+    policy["version"] = policy_version
 
     return policy
 
@@ -90,7 +94,14 @@ def modify_policy(policy, role, member):
 def get_iam_policy(service, project_id):
     """Gets IAM policy for a project."""
 
-    policy = service.projects().getIamPolicy(resource=project_id, body={}).execute()
+    policy = (
+        service.projects()
+        .getIamPolicy(
+            resource=project_id,
+            body={"options": {"requestedPolicyVersion": policy_version}},
+        )
+        .execute()
+    )
 
     return policy
 
@@ -105,6 +116,21 @@ def set_iam_policy(service, project_id, policy):
     )
 
     return policy
+
+
+def get_iam_policy_condition(project):
+    """Creates IAM policy condition."""
+
+    expiration_date = (datetime.utcnow() + timedelta(days=1)).strftime(
+        "%Y-%m-%dT00:00:00Z"
+    )
+    condition = {
+        "title": f"{project}-expiry-condition",
+        "description": "IAM policy expiry condition by end of day",
+        "expression": f"request.time < timestamp('{expiration_date}')",
+    }
+
+    return condition
 
 
 def make_service(service):
@@ -187,6 +213,9 @@ def main(args):
             for permission in access_request.get("odrlPolicy", {}).get(
                 "permission", []
             ):
+                policy_condition = get_iam_policy_condition(
+                    permission["target"].replace("gs://", "")
+                )
 
                 if args.forbidden_roles and permission[
                     "action"
@@ -209,7 +238,10 @@ def main(args):
                         permission["keyring"],
                     )
                     new_kms_policy = modify_policy(
-                        kms_policy, permission["action"], permission["assignee"]
+                        kms_policy,
+                        permission["action"],
+                        permission["assignee"],
+                        policy_condition,
                     )
                     set_kms_policy(
                         permission["target"],
@@ -226,7 +258,10 @@ def main(args):
                     stg_service = make_service("storage")
                     stg_policy = get_stg_policy(stg_service, permission["target"])
                     new_stg_policy = modify_policy(
-                        stg_policy, permission["action"], permission["assignee"]
+                        stg_policy,
+                        permission["action"],
+                        permission["assignee"],
+                        policy_condition,
                     )
                     set_stg_policy(stg_service, permission["target"], new_stg_policy)
 
@@ -238,7 +273,10 @@ def main(args):
                     crm_service = make_service("cloudresourcemanager")
                     iam_policy = get_iam_policy(crm_service, permission["target"])
                     new_iam_policy = modify_policy(
-                        iam_policy, permission["action"], permission["assignee"]
+                        iam_policy,
+                        permission["action"],
+                        permission["assignee"],
+                        policy_condition,
                     )
                     set_iam_policy(crm_service, permission["target"], new_iam_policy)
 
