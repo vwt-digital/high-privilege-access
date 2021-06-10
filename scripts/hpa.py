@@ -14,42 +14,6 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)7s: %(message)s")
 policy_version = 3  # See https://cloud.google.com/iam/docs/policies#versions
 
 
-def get_kms_policy(service, project_id, location_id, key_ring_id):
-    """Gets iam policy for a keyring."""
-
-    keyring = "projects/{}/locations/{}/keyRings/{}".format(
-        project_id, location_id, key_ring_id
-    )
-
-    policy = (
-        service.projects()
-        .locations()
-        .keyRings()
-        .getIamPolicy(resource=keyring)
-        .execute()
-    )
-
-    return policy
-
-
-def set_kms_policy(service, project_id, location_id, key_ring_id, policy):
-    """Sets iam policy for a keyring."""
-
-    keyring = "projects/{}/locations/{}/keyRings/{}".format(
-        project_id, location_id, key_ring_id
-    )
-
-    policy = (
-        service.projects()
-        .locations()
-        .keyRings()
-        .setIamPolicy(resource=keyring, body={"policy": policy})
-        .execute()
-    )
-
-    return policy
-
-
 def get_stg_policy(service, bucket):
     """Gets IAM policy for a project."""
 
@@ -228,32 +192,7 @@ def main(args):
                     )
                     sys.exit(1)
 
-                if "cloudkms" in permission["action"]:
-
-                    kms_service = make_service("cloudkms")
-                    kms_policy = get_kms_policy(
-                        kms_service,
-                        permission["target"],
-                        permission["location"],
-                        permission["keyring"],
-                    )
-                    new_kms_policy = modify_policy(
-                        kms_policy,
-                        permission["action"],
-                        permission["assignee"],
-                        policy_condition,
-                    )
-                    set_kms_policy(
-                        permission["target"],
-                        permission["location"],
-                        permission["keyring"],
-                        new_kms_policy,
-                    )
-
-                    logging.info("Set new kms policy bindings:")
-                    logging.info(pformat(new_kms_policy))
-
-                elif permission["target"].startswith("gs://"):
+                if permission["target"].startswith("gs://"):
 
                     stg_service = make_service("storage")
                     stg_policy = get_stg_policy(stg_service, permission["target"])
