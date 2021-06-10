@@ -22,14 +22,18 @@ def binding_condition_expired(binding):
     """Get expired timestamp and match against current timestamp"""
 
     if "expression" in binding.get("condition", {}):
-        condition_timestamp = re.search(
-            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", binding["condition"]["expression"]
-        ).group()
-
-        if datetime.utcnow() > datetime.strptime(
-            condition_timestamp, "%Y-%m-%dT%H:%M:%SZ"
-        ):
-            return True
+        try:
+            condition_timestamp = re.search(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z",
+                binding["condition"]["expression"],
+            ).group()
+        except AttributeError:
+            return False
+        else:
+            if datetime.utcnow() > datetime.strptime(
+                condition_timestamp, "%Y-%m-%dT%H:%M:%SZ"
+            ):
+                return True
 
     return False
 
