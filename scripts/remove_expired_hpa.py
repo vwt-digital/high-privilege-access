@@ -43,49 +43,6 @@ def binding_condition_expired(binding):
     return False
 
 
-def update_cloudkms_policy(projectId, kms_service):
-    project = "projects/{}".format(projectId)
-    locations = kms_service.projects().locations().list(name=project).execute()
-
-    for location in locations["locations"]:
-        key_rings = (
-            kms_service.projects()
-            .locations()
-            .keyRings()
-            .list(parent=location["name"])
-            .execute()
-        )
-
-        for key_ring in key_rings.get("keyRings", []):
-            kms_policy = (
-                kms_service.projects()
-                .locations()
-                .keyRings()
-                .getIamPolicy(resource=key_ring["name"])
-                .execute()
-            )
-            kms_policy_updated = False
-
-            for binding in kms_policy.get("bindings", []):
-                for member in binding.get("members", []):
-                    if member.startswith("user"):
-                        print(
-                            "Remove member {} from policy {}".format(member, kms_policy)
-                        )
-                        modify_policy_remove_member(kms_policy, binding["role"], member)
-                        kms_policy_updated = True
-            if kms_policy_updated:
-                print(
-                    kms_service.projects()
-                    .locations()
-                    .keyRings()
-                    .setIamPolicy(
-                        resource=key_ring["name"], body={"policy": kms_policy}
-                    )
-                    .execute()
-                )
-
-
 def update_iam_policy(project_id, iam_service):
     iam_policy = (
         iam_service.projects()
@@ -140,7 +97,6 @@ def main():
         parent_id = sys.argv[1]
 
         iam_service = get_service("cloudresourcemanager")
-        kms_service = get_service("cloudkms")
         stg_service = get_service("storage")
 
         request = iam_service.projects().list(
@@ -153,11 +109,6 @@ def main():
             for pr in response.get("projects", []):
                 print("Updating iam policy from project [{}]".format(pr["projectId"]))
                 update_iam_policy(pr["projectId"], iam_service)
-
-                print(
-                    "Updating cloudkms policy from project [{}]".format(pr["projectId"])
-                )
-                update_cloudkms_policy(pr["projectId"], kms_service)
 
                 print(
                     "Updating bucket policy from project [{}]".format(pr["projectId"])
