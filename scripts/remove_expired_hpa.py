@@ -18,15 +18,6 @@ def get_service(service_name):
     return service
 
 
-def modify_policy_remove_member(policy, role, member):
-    binding = next(b for b in policy["bindings"] if b["role"] == role)
-    if "members" in binding and member in binding["members"]:
-        binding["members"].remove(member)
-
-    policy["version"] = policy_version
-    return policy
-
-
 def binding_condition_expired(binding):
     """Get expired timestamp and match against current timestamp"""
 
@@ -59,13 +50,13 @@ def update_iam_policy(project_id, iam_service):
 
         for member in reversed(binding["members"]):
             if "user:" in member and binding_expired:
-                modified = True
-                iam_policy = modify_policy_remove_member(
-                    iam_policy, binding["role"], member
-                )
                 print("Removed [{}],[{}]".format(member, binding["role"]))
+                binding["members"].remove(member)
+                modified = True
 
     if modified:
+        iam_policy["version"] = policy_version
+
         print("New Policy {}".format(iam_policy))
         iam_service.projects().setIamPolicy(
             resource=project_id, body={"policy": iam_policy}
@@ -83,7 +74,7 @@ def update_bucket_policy(project_id, stg_service):
             for member in binding.get("members", []):
                 if member.startswith("user"):
                     print("Remove member {} from policy {}".format(member, stg_policy))
-                    modify_policy_remove_member(stg_policy, binding["role"], member)
+                    binding["members"].remove(member)
                     stg_policy_updated = True
         if stg_policy_updated:
             print("New Policy {}".format(stg_policy))
