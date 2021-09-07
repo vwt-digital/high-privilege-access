@@ -12,6 +12,9 @@ from oauth2client.client import GoogleCredentials
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)7s: %(message)s")
 policy_version = 3  # See https://cloud.google.com/iam/docs/policies#versions
+basic_roles = [  # See https://cloud.google.com/iam/docs/understanding-roles#basic
+    "roles/owner"
+]
 
 
 def get_stg_policy(service, bucket):
@@ -47,7 +50,12 @@ def modify_policy(policy, role, member, condition):
     new_binding = dict()
     new_binding["role"] = role
     new_binding["members"] = members
-    new_binding["condition"] = condition
+
+    # Basic roles may not have any conditions.
+    # See: https://cloud.google.com/iam/docs/conditions-overview#limitations
+    if role not in basic_roles:
+        new_binding["condition"] = condition
+
     bindings.append(new_binding)
     policy["bindings"] = bindings
     policy["version"] = policy_version
