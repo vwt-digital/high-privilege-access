@@ -12,11 +12,9 @@ from oauth2client.client import GoogleCredentials
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)7s: %(message)s")
 policy_version = 3  # See https://cloud.google.com/iam/docs/policies#versions
-basic_roles = {  # See https://cloud.google.com/iam/docs/understanding-roles#basic
-    "roles/owner",
-    "roles/editor",
-    "roles/viewer",
-}
+basic_roles = [  # See https://cloud.google.com/iam/docs/understanding-roles#basic
+    "roles/owner"
+]
 
 
 def get_stg_policy(service, bucket):
